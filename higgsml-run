@@ -1,0 +1,4 @@
+#!/bin/sh
+BASE=$(dirname "$0")
+sh $BASE/build/ensure-configured.sh
+${BASE}/rumcajsz predict "$@"

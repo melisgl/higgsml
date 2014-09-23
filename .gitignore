@@ -1,0 +1,14 @@
+*~
+*.fasl
+SETTINGS
+data/*.csv
+data/*.gz
+data/*.zip
+dist/*.tar.gz
+dist/*.zip
+model/
+submission/*.csv
+submission/*.gz
+submission/*.zip
+quicklisp/
+rumcajsz

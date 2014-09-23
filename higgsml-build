@@ -1,0 +1,5 @@
+#!/bin/sh
+BASE=$(dirname "$0")
+cd ${BASE}
+sh build/ensure-configured.sh "$@"
+sh build/run-lisp.sh --load build/load-project.lisp --load build/save-image.lisp

@@ -1,0 +1,110 @@
+#!/bin/sh
+
+lisp=sbcl
+sbclbin=sbcl
+aclbin=alisp
+sbcloptions="--dynamic-space-size 24000 --noinform\
+     --lose-on-corruption --end-runtime-options\
+     --non-interactive --no-userinit --no-sysinit\
+     --disable-debugger"
+acloptions=""
+datadir=data/
+modeldir=model/
+submissiondir=submission/
+
+usage()
+{
+    cat <<EOF
+Usage: $0
+          [--lisp [ acl | sbcl]]
+          [--sbcl-bin <sbcl-binary>]
+          [--sbcl-options <sbcl-options>]
+          [--acl-bin <acl-binary>]
+          [--acl-options <acl-options>]
+          [--data-dir <directory>]
+          [--model-dir <directory>]
+          [--submission-dir <directory>]
+
+--lisp
+  defaults to '$lisp'.
+--sbcl-bin
+  Path to the sbcl executable. Defaults to '$sbclbin'.
+--sbcl-options
+  Defaults to '$sbcloptions'.
+--acl-bin
+  Path to the AllegroCL executable. Defaults to '$aclbin'.
+--acl-options
+  Defaults to '$acloptions'.
+--data-dir
+  Where the uncompressed csv files reside, defaults to '$datadir'.
+--model-dir
+  Where the model files are saved, defaults to '$modeldir'.
+--submission-dir
+  Where submission files are saved, defaults to '$submissiondir'.
+
+The directories can be absolute filenames or relative to the
+configuration script.
+EOF
+}
+
+BASE=`dirname "$0"`
+
+cd "$BASE"
+
+while [ "$1" != "" ]; do
+    case $1 in
+        --lisp)
+            shift
+            lisp="$1"
+            ;;
+        --sbcl-bin)
+            shift
+            sbclbin="$1"
+            ;;
+        --sbcl-options)
+            shift
+            sbcloptions="$1"
+            ;;
+        --acl-bin)
+            shift
+            sbclbin="$1"
+            ;;
+        --acl-options)
+            shift
+            acloptions="$1"
+            ;;
+        --data-dir)
+            shift
+            datadir="$1"
+            ;;
+        -h | --help)
+            usage
+            exit
+            ;;
+        *)
+            usage
+            exit 1
+    esac
+    shift
+done
+
+if [ "$lisp" != "acl" -a "$lisp" != "sbcl" ]; then
+    echo "Unsupported lisp: '$lisp'"
+    usage
+    exit 1
+fi
+
+cat <<EOF > SETTINGS
+LISP="$lisp"
+SBCLBIN="$sbclbin"
+SBCLOPTIONS="$sbcloptions"
+ACLBIN="$aclbin"
+ACLOPTIONS="$acloptions"
+DATADIR="$datadir"
+MODELDIR="$modeldir"
+SUBMISSIONDIR="$submissiondir"
+EOF
+
+echo "Configuration written to SETTINGS."
+echo
+cat SETTINGS
