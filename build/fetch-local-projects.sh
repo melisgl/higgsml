@@ -1,5 +1,5 @@
 #!/bin/sh -e
-git clone http://quotenil.com/git/mgl.git
+git clone git@github.com:melisgl/mgl.git
 (cd mgl && git co higgsml)
 
 git clone https://github.com/melisgl/mgl-mat
