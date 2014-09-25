@@ -1,6 +1,5 @@
 *~
 *.fasl
-SETTINGS
 data/*.csv
 data/*.gz
 data/*.zip

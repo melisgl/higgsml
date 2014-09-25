@@ -1,0 +1,8 @@
+LISP="sbcl"
+SBCLBIN="sbcl"
+SBCLOPTIONS="--dynamic-space-size 24000 --noinform     --lose-on-corruption --end-runtime-options     --non-interactive --no-userinit --no-sysinit     --disable-debugger"
+ACLBIN="alisp"
+ACLOPTIONS=""
+DATADIR="data/"
+MODELDIR="model/"
+SUBMISSIONDIR="submission/"
