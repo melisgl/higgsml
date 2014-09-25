@@ -19,9 +19,16 @@
 
 (defmethod asdf:perform ((o asdf:test-op)
                          (c (eql (asdf:find-system '#:rumcajsz))))
-  (asdf:oos 'asdf:load-op '#:rumcajsz-test)
+  (asdf:oos 'asdf:load-op '#:rumcajsz/test)
   (funcall (intern (symbol-name '#:test) (find-package '#:rumcajsz-test))))
 
-(defmethod asdf:operation-done-p ((o asdf:test-op)
-                                  (c (eql (asdf:find-system '#:rumcajsz))))
-  (values nil))
+(asdf:defsystem #:rumcajsz/test
+  :author "Gabor Melis"
+  :version "0.0"
+  :licence "MIT"
+  :components ((:module "test"
+                :serial t
+                :components ((:file "package")
+                             (:file "test"))))
+  :depends-on (#:rumcajsz)
+  :serial t)
