@@ -12,9 +12,4 @@
                                                 :defaults *load-pathname*)))
       asdf:*central-registry*)
 
-(ql:quickload :alexandria)
-(ql:quickload :cl-csv)
-(ql:quickload :mgl-example)
-(ql:quickload :external-program)
-
 (asdf:load-system :rumcajsz)

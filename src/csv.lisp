@@ -32,7 +32,7 @@
             (let ((file-position (file-position stream))
                   (record (cl-csv:read-csv-row stream)))
               (when (zerop (mod i 10000))
-                (mgl-example-util:log-msg "Read ~S csv records.~%" i))
+                (mgl:log-msg "Read ~S csv records.~%" i))
               (incf i)
               (cond ((or (/= i 1)
                          (and (= i 1)
@@ -70,7 +70,7 @@
     (loop for i upfrom 0
           for feature in features
           do (setf (aref v i) (parse-float feature)))
-    (array-to-mat v)))
+    (array-to-mat v :ctype *default-mat-ctype*)))
 
 (defun csv-record-to-example (record filename file-position)
   (declare (ignore filename file-position))

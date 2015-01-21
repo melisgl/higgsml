@@ -138,32 +138,32 @@
   (progn
     (setf (aref feature-vector start)
           (let ((x (der-inv-mass raw :tau :jet)))
-            (flt (if x (/ (- x 4.76) 0.66) 0))))
+            (if x (/ (- x 4.76) 0.66) 0.0)))
     (incf start)
     (setf (aref feature-vector start)
           (let ((x (der-inv-mass raw :tau :jet-2)))
-            (flt (if x (/ (- x 4.74) 0.67) 0))))
+            (if x (/ (- x 4.74) 0.67) 0.0)))
     (incf start)
     (setf (aref feature-vector start)
           (let ((x (der-tr-mass raw :tau :lep)))
             (if x
-                (flt (/ (log-transform (- x 4.13))
-                        0.345))
-                (flt 0))))
+                (/ (log-transform (- x 4.13))
+                   0.345)
+                0.0)))
     (incf start)
     (setf (aref feature-vector start)
           (let ((x (der-tr-mass raw :tau :jet)))
             (if x
-                (flt (/ (log-transform (- x 4.18))
-                        0.509))
-                (flt 0))))
+                (/ (log-transform (- x 4.18))
+                   0.509)
+                0.0)))
     (incf start)
     (setf (aref feature-vector start)
           (let ((x (der-tr-mass raw :tau :jet-2)))
             (if x
-                (flt (/ (log-transform (- x 4.05))
-                        0.498))
-                (flt 0))))
+                (/ (log-transform (- x 4.05))
+                   0.498)
+                0.0)))
     (incf start)))
 
 (defun inv-mass (pt-1 eta-1 phi-1 pt-2 eta-2 phi-2)
@@ -255,8 +255,7 @@
      ;; see ENCODE-EXTRA-MODULI
      1))
 
-(defun make-encoder (examples &key transformers (normalize t)
-                     (missing-value (flt 0)))
+(defun make-encoder (examples &key transformers (normalize t) (missing-value 0))
   (let ((transformed-stats (coerce (loop repeat *n-features*
                                          collect (make-instance 'running-stat))
                                    'vector))
@@ -288,7 +287,6 @@
           (or (gethash example example-to-features)
               (setf (gethash example example-to-features)
                     (let ((f (make-array *n-encoded-features*
-                                         :element-type 'mgl-util:flt
                                          :initial-element missing-value))
                           (start 0)
                           (mgl-cube:*let-input-through-p* t))
@@ -315,4 +313,4 @@
                       (assert (= (length f) start))
                       (if lisp-array-p
                           f
-                          (array-to-mat f :ctype mgl-util:flt-ctype))))))))))
+                          (array-to-mat f :ctype *default-mat-ctype*))))))))))

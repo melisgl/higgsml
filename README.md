@@ -144,7 +144,7 @@ command to fetch the dependencies not in quicklisp:
              <path-to-here>/build/install-local-projects.sh)
 
 If you are having trouble, not that the rest of the libraries were
-from the 2014-09-14 quicklisp distribution. See
+from the 2015-01-13 quicklisp distribution. See
 build/install-dependencies.lisp about how to get historical
 distributions.
 

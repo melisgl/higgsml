@@ -1,5 +1,6 @@
 (defpackage :higgs-boson
-  (:use :cl :mgl-mat :mgl-resample :mgl-example-util)
+  (:use :cl :mgl-mat :mgl)
+  (:import-from :mgl #:label-index)
   (:export #:*data-dir*
            #:*model-dir*
            #:*submission-dir*
@@ -59,7 +60,5 @@
            #:sum-weights-for-labels))
 
 (defpackage :rumcajsz
-  (:use :cl :higgs-boson
-        :mgl-mat :mgl-resample :mgl-util :mgl-train :mgl-bm :mgl-gd :mgl-bp
-        :mgl-example-util)
+  (:use :cl :higgs-boson :mgl-mat :mgl)
   (:export #:main))

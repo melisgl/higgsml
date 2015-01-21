@@ -55,11 +55,11 @@
 (defun index->label (index)
   (elt *labels* index))
 
-(defgeneric label-index (label)
-  (:method ((label symbol))
-    (position label *labels*))
-  (:method ((example example))
-    (label-index (example-label example))))
+(defmethod label-index ((label symbol))
+  (position label *labels*))
+
+(defmethod label-index ((example example))
+  (label-index (example-label example)))
 
 
 (defun label-weights (examples label)

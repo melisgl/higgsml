@@ -14,7 +14,7 @@
                              (:file "bpn")
                              (:file "xgboost")
                              (:file "main"))))
-  :depends-on (#:alexandria #:cl-csv #:external-program #:mgl-example)
+  :depends-on (#:alexandria #:cl-csv #:external-program #:mgl)
   :serial t)
 
 (defmethod asdf:perform ((o asdf:test-op)
