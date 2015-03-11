@@ -69,7 +69,7 @@
   ;; splits and average results. That's a bag of 20 neural networks.
   (let ((*experiment-random-seed* 1234)
         (mgl:*log-file* (merge-pathnames "rumcajsz.log" trained-model-dir)))
-    (repeatably ()
+    (with-cuda* ()
       (check-cuda)
       (run-cv-bagging #'train-4 :n-folds 2 :n-iterations 10
                       :save-dir trained-model-dir
