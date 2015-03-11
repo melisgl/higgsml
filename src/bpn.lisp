@@ -22,7 +22,7 @@
     (let ((sampler (make-sampler examples :randomp nil :discard-label-p t)))
       (do-batches-for-model (samples (sampler bpn))
         (set-input samples bpn)
-        (forward-bpn bpn)
+        (forward bpn)
         (loop for i below (length samples)
               for sample in samples
               do (let ((example (first sample)))
@@ -42,7 +42,7 @@
                      (log-msg "Predicting with network ~S~%" i))
                    (let* ((training (higgs-boson::slurp-csv training-file))
                           (bpn (make-higgs-bpn training)))
-                     (load-weights model-file bpn)
+                     (load-state model-file bpn)
                      (let ((predictions (predict-batch-with-bpn bpn examples)))
                        #+nil
                        (save-predictions
@@ -221,7 +221,7 @@
 (defclass higgs-bpn-gd-trainer (higgs-bp-trainer segmented-gd-optimizer)
   ())
 
-(defclass higgs-bpn-gd-segment-trainer (batch-gd-optimizer)
+(defclass higgs-bpn-gd-segment-trainer (sgd-optimizer)
   ((n-instances-in-epoch :initarg :n-instances-in-epoch
                          :reader n-instances-in-epoch)
    (n-epochs-to-reach-final-momentum
@@ -352,18 +352,17 @@
 (defun build-higgs-bpn (&key (group-size 3) (n 600) dropout)
   (build-fnn (:class 'higgs-bpn :max-n-stripes 96)
     (inputs (->input :dropout nil :size *n-encoded-features*))
-    (f1-activations (->activation :name 'f1 :inputs '(inputs) :size n))
-    (f1* (->max-channel :group-size group-size :x f1-activations))
-    (f1 (->dropout :x f1* :dropout dropout))
-    (f2-activations (->activation :name 'f2 :inputs '(f1) :size n))
-    (f2* (->max-channel :group-size group-size :x f2-activations))
-    (f2 (->dropout :x f2* :dropout dropout))
-    (f3-activations (->activation :name 'f3 :inputs '(f2) :size n))
-    (f3* (->max-channel :group-size group-size :x f3-activations))
-    (f3 (->dropout :x f3* :dropout dropout))
-    (prediction (->softmax-xe-loss :x (->activation :name 'prediction
-                                                    :inputs (list f3)
-                                                    :size *n-labels*)))))
+    (f1-activations (->activation inputs :name 'f1 :size n))
+    (f1* (->max-channel f1-activations :group-size group-size ))
+    (f1 (->dropout f1* :dropout dropout))
+    (f2-activations (->activation f1 :name 'f2 :size n))
+    (f2* (->max-channel f2-activations :group-size group-size))
+    (f2 (->dropout f2* :dropout dropout))
+    (f3-activations (->activation f2 :name 'f3 :size n))
+    (f3* (->max-channel f3-activations :group-size group-size))
+    (f3 (->dropout f3* :dropout dropout))
+    (prediction (->softmax-xe-loss (->activation f3 :name 'prediction
+                                                 :size *n-labels*)))))
 
 (defun make-higgs-bpn (training)
   (let ((bpn (build-higgs-bpn :group-size 3 :n 600 :dropout 0.5)))
@@ -383,7 +382,7 @@
                           :learning-rate-decay (expt 0.998 15)
                           :l2-upper-bound nil)
       (when (and bpn-filename)
-        (save-weights bpn-filename bpn))
+        (save-state bpn-filename bpn))
       bpn)))
 
 
@@ -484,7 +483,7 @@
 (let ((*experiment-random-seed* 1234)
       (*default-mat-ctype* :float))
   (repeatably ()
-    (run-cv-bagging #'train-4 :n-folds 2
+    (run-cv-bagging 'train-4 :n-folds 2
                     :save-dir (merge-pathnames "xxx/" *model-dir*))))
 
 (setq *stop* t)
