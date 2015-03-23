@@ -107,7 +107,7 @@
 
 (defclass higgs-base-trainer ()
   ((training :initarg :training :reader training)
-   (test :initarg :test :reader test)))
+   (tests :initarg :tests :reader tests)))
 
 (defun log-training-period (trainer learner)
   (declare (ignore learner))
@@ -155,10 +155,12 @@
 (defun log-test-error (trainer learner)
   (let* ((*random-state* (make-random-state nil))
          (bpn (bpn learner))
-         (test (test trainer))
+         (tests (tests trainer))
          (training (training trainer))
          (training-predictions (predict-batch-with-bpn bpn training))
-         (test-predictions (predict-batch-with-bpn bpn test)))
+         (test-prediction-seqs (mapcar (lambda (test)
+                                         (predict-batch-with-bpn bpn test))
+                                       tests)))
     (when (<= (* 60 (length training)) (n-instances trainer))
       (let* ((extra-example-weights (extra-example-weights bpn))
              (n (length training-predictions))
@@ -207,11 +209,16 @@
                            (make-cost-monitors
                             bpn :attributes '(:event "pred."
                                               :dataset "train")))
-      (monitor-bpn-results (make-sampler test) (bpn learner)
-                           (make-cost-monitors
-                            (bpn learner) :attributes '(:event "pred."
-                                                        :dataset "test")))))
-    (log-thresholds training-predictions test-predictions))
+      (loop for test in tests
+            for i upfrom 0
+            nconc (monitor-bpn-results
+                   (make-sampler test) (bpn learner)
+                   (make-cost-monitors
+                    (bpn learner)
+                    :attributes `(:event "pred."
+                                         :dataset
+                                         ,(format nil "test-~D" i)))))))
+    (log-thresholds training-predictions test-prediction-seqs))
   (log-msg "---------------------------------------------------~%"))
 
 
@@ -269,7 +276,7 @@
         (second (second name))
         (second name))))
 
-(defun train-higgs-bpn-gd (bpn training test &key
+(defun train-higgs-bpn-gd (bpn training tests &key
                            (n-epochs 200) l2-upper-bound
                            learning-rate learning-rate-decay
                            (n-epochs-to-reach-final-momentum 500)
@@ -315,7 +322,7 @@
     (let ((trainer (monitor-optimization-periodically
                     (make-instance 'higgs-bpn-gd-trainer
                                    :training training
-                                   :test test
+                                   :tests tests
                                    :segmenter (make-segmenter #'make-trainer)) 
                     '((:fn log-test-error
                        :period log-test-period)
@@ -353,7 +360,7 @@
   (build-fnn (:class 'higgs-bpn :max-n-stripes 96)
     (inputs (->input :dropout nil :size *n-encoded-features*))
     (f1-activations (->activation inputs :name 'f1 :size n))
-    (f1* (->max-channel f1-activations :group-size group-size ))
+    (f1* (->max-channel f1-activations :group-size group-size))
     (f1 (->dropout f1* :dropout dropout))
     (f2-activations (->activation f1 :name 'f2 :size n))
     (f2* (->max-channel f2-activations :group-size group-size))
@@ -370,12 +377,12 @@
           (make-encoder training :transformers (make-transformers)))
     bpn))
 
-(defun train-higgs/4 (&key training test quick-run-p bpn-var bpn-filename)
+(defun train-higgs/4 (&key training tests quick-run-p bpn-var bpn-filename)
   (repeatably ()
     (let ((bpn nil))
       (setq* (bpn bpn-var) (make-higgs-bpn training))
       (init-bpn-weights bpn :stddev 0.01)
-      (train-higgs-bpn-gd bpn training test
+      (train-higgs-bpn-gd bpn training tests
                           :n-epochs (if quick-run-p 2 200)
                           :n-epochs-to-reach-final-momentum 100
                           :learning-rate 1
@@ -389,24 +396,23 @@
 (defvar *bpn/4*)
 
 (defun run-quick-test ()
-  (train-higgs/4 :training (training-examples) :test (test-examples)
+  (train-higgs/4 :training (training-examples) :tests (list (test-examples))
                  :quick-run-p t))
 
 
 ;;;; Cross-validation
 
-(defun train-4 (&key training test filename)
-  (let* ((bpn (train-higgs/4 :training training :test test
-                             :bpn-var '*bpn/4*
-                             :bpn-filename filename))
-         (test-predictions (predict-batch-with-bpn bpn test)))
-    (values bpn test-predictions)))
+(defun train-4 (&key training tests filename)
+  (train-higgs/4 :training training :tests tests
+                 :bpn-var '*bpn/4*
+                 :bpn-filename filename))
 
 (defun run-cv-bagging (fn &key (save-dir *model-dir*)
                        (training (training-examples))
                        (test (test-examples))
                        (n-folds 2)
                        n-iterations)
+  #+nil
   (assert (or (not (uiop/filesystem:directory-exists-p save-dir))
               (endp (directory (merge-pathnames "*" save-dir)))))
   (ensure-directories-exist save-dir)
@@ -419,40 +425,56 @@
                 (describe-examples "in-bag" in-bag)
                 (describe-examples "out-of-bag" out-of-bag)
                 (sb-ext:gc :full t)
-                (save-training in-bag (merge-pathnames
-                                       (format nil "bag-~S-training.csv"
-                                               bag-index)
-                                       save-dir))
-                (multiple-value-bind (bpn out-of-bag-predictions)
-                    (let ((*experiment-random-seed*
-                            (+ *experiment-random-seed* bag-index)))
-                      (funcall fn :training in-bag
-                               :test out-of-bag
-                               :filename (merge-pathnames
-                                          (format nil "bag-~S-model-bpn"
-                                                  bag-index)
-                                          save-dir)))
-                  (save-predictions
-                   out-of-bag-predictions
-                   (merge-pathnames
-                    (format nil "bag-~S-out-of-bag-predictions-bpn" bag-index)
-                    save-dir))
-                  (when test
-                    (save-predictions
-                     (predict-batch-with-bpn bpn test)
-                     (merge-pathnames
-                      (format nil "bag-~S-test-predictions-bpn" bag-index)
-                      save-dir)))
-                  (log-msg "Finished bag ~S~%" bag-index)
-                  (let ((predictions
-                          (average-overlapping-predictions
-                           (mapcar
-                            #'load-predictions
-                            (directory (merge-pathnames
-                                        "bag-*-out-of-bag-predictions-bpn"
-                                        save-dir))))))
-                    (log-msg "Test results with ~S bags~%" (1+ bag-index))
-                    (log-thresholds () predictions))
+                (let ((training-file (merge-pathnames
+                                      (format nil "bag-~S-training.csv"
+                                              bag-index)
+                                      save-dir))
+                      (model-file (merge-pathnames
+                                   (format nil "bag-~S-model-bpn" bag-index)
+                                   save-dir))
+                      (out-of-bag-predictions-file
+                        (merge-pathnames
+                         (format nil "bag-~S-out-of-bag-predictions-bpn"
+                                 bag-index)
+                         save-dir))
+                      (test-predictions-file
+                        (merge-pathnames
+                         (format nil "bag-~S-test-predictions-bpn" bag-index)
+                         save-dir)))
+                  (unless (probe-file model-file)
+                    (save-training in-bag training-file :if-exists :supersede)
+                    (let* ((bpn (let ((*experiment-random-seed*
+                                        (+ *experiment-random-seed* bag-index)))
+                                  (funcall fn :training in-bag
+                                           :tests (list out-of-bag test)
+                                           :filename model-file)))
+                           (out-of-bag-predictions
+                             (predict-batch-with-bpn bpn out-of-bag)))
+                      (save-predictions
+                       out-of-bag-predictions
+                       out-of-bag-predictions-file)
+                      (when test
+                        (save-predictions
+                         (predict-batch-with-bpn bpn test)
+                         test-predictions-file))
+                      (log-msg "Finished bag ~S~%" bag-index)
+                      (let ((out-of-bag-predictions
+                              (average-overlapping-predictions
+                               (mapcar
+                                #'load-predictions
+                                (directory (merge-pathnames
+                                            "bag-*-out-of-bag-predictions-bpn"
+                                            save-dir)))))
+                            (test-predictions
+                              (average-overlapping-predictions
+                               (mapcar
+                                #'load-predictions
+                                (directory (merge-pathnames
+                                            "bag-*-test-predictions-bpn"
+                                            save-dir))))))
+                        (log-msg "Test results with ~S bags~%" (1+ bag-index))
+                        (log-thresholds () (list out-of-bag-predictions
+                                                 test-predictions)))))
                   (incf bag-index)
                   (values)))
               :n-folds n-folds
@@ -476,9 +498,10 @@
   (run-quick-test))
 
 (progn
-  (makunbound 'higgs-boson::*event-id-to-example*)
+  (clrhash higgs-boson::*event-id-to-example*)
   (makunbound 'higgs-boson::*training-examples*)
-  (makunbound 'higgs-boson::*test-examples*))
+  (makunbound 'higgs-boson::*test-examples*)
+  (makunbound 'higgs-boson::*opendata-examples*))
 
 (let ((*experiment-random-seed* 1234)
       (*default-mat-ctype* :float))

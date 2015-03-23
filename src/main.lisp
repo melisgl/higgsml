@@ -10,6 +10,9 @@
              (higgsml-train (rest args)))
             ((string= command "predict")
              (higgsml-predict (rest args)))
+            ;; not public
+            ((string= command "test-opendata")
+             (higgsml-test-opendata (rest args)))
             (t
              (exit-with-error "Unknown command ~S must be one of ~
                               \"train\" and \"predict\".~%" command))))))
@@ -94,6 +97,26 @@
      bpn-predictions 0.1520
      (merge-pathnames submission-file
                       *default-pathname-defaults*))))
+
+(defun higgsml-test-opendata (args)
+  (assert (endp args))
+  (let ((*default-mat-ctype* :float)
+        (*experiment-random-seed* 1234))
+    (with-cuda* ()
+      (check-cuda)
+      (dotimes (i 10)
+        (destructuring-bind (training test)
+            (fracture (list (/ (+ i 1) 10) (- 1 (/ (+ i 1) 10)))
+                      (opendata-examples))
+          (let ((training-size (length training)))
+            (log-msg "Testing with training set size ~D~%" training-size)
+            (run-cv-bagging 'train-4 :n-folds 2 :n-iterations 10
+                            :save-dir (merge-pathnames
+                                       (format nil "opendata-~D/"
+                                               training-size)
+                                       *model-dir*)
+                            :training training
+                            :test test)))))))
 
 (defun check-cuda ()
   (if (cuda-available-p)

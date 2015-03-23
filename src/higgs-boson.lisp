@@ -68,7 +68,7 @@
           sum (example-weight example)))
 
 (defun describe-examples (name examples)
-  (log-msg "~A set S n: ~S weights: ~,1F B weights: ~,1F~%"
+  (log-msg "~A set n: ~S S weights: ~,1F B weights: ~,1F~%"
            name (length examples)
            (label-weights examples :s) (label-weights examples :b)))
 
@@ -248,59 +248,43 @@
         (n (length pairs)))
     (map 'list #'car (subseq pairs 0 (floor (* n ratio))))))
 
-(defun log-thresholds (training-predictions test-predictions
-                       &key training-scale test-scale)
+(defun log-thresholds (training-predictions test-prediction-seqs)
   (let ((training-predictions (shuffle training-predictions))
-        (test-predictions (shuffle test-predictions)))
+        (test-prediction-seqs (mapcar #'shuffle test-prediction-seqs)))
     (when (plusp (length training-predictions))
       (loop for b-reg in '(10) do
         (multiple-value-bind (best-threshold best-ams best-s best-b
                               best-ratio best-s-mean best-b-mean ams-auc)
-            (find-best-threshold training-predictions :b-reg b-reg
-                                 :scale training-scale)
+            (find-best-threshold training-predictions :b-reg b-reg)
           (declare (ignore best-s-mean best-b-mean))
           (log-msg "~3D ams:#~5,3F ~5,3F S: ~3D B: ~6D T: ~6,4F R: ~6,4F~%"
                    b-reg best-ams ams-auc (round best-s) (round best-b)
-                   best-threshold best-ratio)
-          (when (plusp (length test-predictions))
-            (multiple-value-bind (ams s b s-mean b-mean)
-                (approximate-median-significance-for-s-set
-                 (threshold-confidence test-predictions best-threshold)
-                 (or test-scale (scaling-factor test-predictions :key #'car)))
-              (declare (ignore s-mean b-mean))
-              (log-msg "    ams: ~5,3F       S: ~3D B: ~6D T: ^^^^^^~%"
-                       ams (round s) (round b)))
-            (multiple-value-bind (ams s b)
-                (approximate-median-significance-for-s-set
-                 (threshold-confidence-by-ratio test-predictions best-ratio)
-                 (or test-scale (scaling-factor test-predictions :key #'car)))
-              (log-msg
-               "    ams: ~5,3F       S: ~3D B: ~6D           R: ^^^^^^~%"
-               ams (round s) (round b)))))))
-    (when (plusp (length test-predictions))
-      (let ((test-scale (or test-scale
-                            (scaling-factor test-predictions :key #'car))))
-        (dolist (b-reg (list 10))
-          (loop for ratio in '(0.11 0.115
-                               0.12 0.125 0.13 0.135 0.14 0.145 0.15 0.155 0.16
-                               0.165 0.17)
-                do (multiple-value-bind (ams s b)
-                       (approximate-median-significance-for-s-set
-                        (threshold-confidence-by-ratio test-predictions ratio)
-                        test-scale
-                        :b-reg b-reg)
-                     (log-msg
-                      "@15 ams: ~5,3F       S: ~3D B: ~6D           R: ~6,4F~%"
-                      ams (round s) (round b) ratio)))
-          (multiple-value-bind (best-threshold best-ams best-s best-b
-                                best-ratio best-s-mean best-b-mean
-                                ams-auc)
-              (find-best-threshold test-predictions :scale test-scale
-                                   :b-reg b-reg)
-            (declare (ignore best-s-mean best-b-mean))
-            (log-msg "idl ams: ~5,3F ~5,3F S: ~3D B: ~6D T: ~6,4F R: ~6,4F~%"
-                     best-ams ams-auc (round best-s) (round best-b)
-                     best-threshold best-ratio)))))))
+                   best-threshold best-ratio))))
+    (dolist (test-predictions test-prediction-seqs)
+      (when (plusp (length test-predictions))
+        (let ((test-scale (scaling-factor test-predictions :key #'car)))
+          (dolist (b-reg (list 10))
+            (loop
+              for ratio in '(0.11 0.115
+                             0.12 0.125 0.13 0.135 0.14 0.145 0.15 0.155
+                             0.16 0.165 0.17)
+              do (multiple-value-bind (ams s b)
+                     (approximate-median-significance-for-s-set
+                      (threshold-confidence-by-ratio test-predictions ratio)
+                      test-scale
+                      :b-reg b-reg)
+                   (log-msg
+                    "@15 ams: ~5,3F       S: ~3D B: ~6D           R: ~6,4F~%"
+                    ams (round s) (round b) ratio)))
+            (multiple-value-bind (best-threshold best-ams best-s best-b
+                                  best-ratio best-s-mean best-b-mean
+                                  ams-auc)
+                (find-best-threshold test-predictions :scale test-scale
+                                     :b-reg b-reg)
+              (declare (ignore best-s-mean best-b-mean))
+              (log-msg "idl ams: ~5,3F ~5,3F S: ~3D B: ~6D T: ~6,4F R: ~6,4F~%"
+                       best-ams ams-auc (round best-s) (round best-b)
+                       best-threshold best-ratio))))))))
 
 
 ;;;; Submission

@@ -31,3 +31,4 @@
 
 (defparameter *training-file* (merge-pathnames "training.csv" *data-dir*))
 (defparameter *test-file* (merge-pathnames "test.csv" *data-dir*))
+(defparameter *opendata-file* (merge-pathnames "opendata.csv" *data-dir*))

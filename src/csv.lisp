@@ -19,6 +19,21 @@
             (if *test-file*
                 (slurp-csv *test-file*)
                 nil))))
+
+(defvar *opendata-examples*)
+
+(defvar *event-id-multiplier* 1)
+
+(defun opendata-examples ()
+  (if (boundp '*opendata-examples*)
+      *opendata-examples*
+      (setq *opendata-examples*
+            (if *opendata-file*
+                ;; avoid collision with kaggle training.csv and
+                ;; test.csv ids
+                (let ((*event-id-multiplier* -1))
+                  (slurp-csv *opendata-file*))
+                nil))))
 
 
 (defun map-csv-records (fn filename &key skip-header header-p-fn)
@@ -75,8 +90,19 @@
 (defun csv-record-to-example (record filename file-position)
   (declare (ignore filename file-position))
   (let* ((n (length record))
-         (event-id (parse-integer (first record))))
-    (cond ((find-example-by-event-id event-id :errorp nil))
+         (event-id (* (parse-integer (first record))
+                      *event-id-multiplier*))
+         (example (find-example-by-event-id event-id :errorp nil)))
+    (cond (example
+           (when (and (null (example-weight example))
+                      (<= (+ 3 *n-features* (length record))))
+             (setf (example-weight example)
+                   (parse-float (elt record (+ 1 *n-features*)))))
+           (when (and (null (example-label example))
+                      (<= (+ 3 *n-features* (length record))))
+             (setf (example-label example)
+                   (parse-label (elt record (+ 2 *n-features*)))))
+           example)
           ((= n (+ 1 *n-features*))
            (setf (gethash event-id *event-id-to-example*)
                  (make-example
@@ -90,6 +116,19 @@
                              (subseq record 1 (+ 1 *n-features*)))
                   :weight (parse-float (elt record (+ 1 *n-features*)))
                   :label (parse-label (elt record (+ 2 *n-features*))))))
+          ;; opendata has KaggleSet and KaggleWeight columns as well
+          ((= n (+ 5 *n-features*))
+           (let ((weight (parse-float (elt record (+ 1 *n-features*))))
+                 (label (parse-label (elt record (+ 2 *n-features*)))))
+             (assert label)
+             (assert weight)
+             (setf (gethash event-id *event-id-to-example*)
+                   (make-example
+                    :event-id event-id
+                    :features (parse-feature-vector
+                               (subseq record 1 (+ 1 *n-features*)))
+                    :weight weight
+                    :label label))))
           (t
            (error "Unexpected number of columns.")))))
 
@@ -119,9 +158,11 @@
               stream))
 
 (defun save-training (training training-file
-                      &key (features-fn #'example-features))
+                      &key (features-fn #'example-features)
+                      (if-exists :error))
   (with-open-file (training-stream training-file :direction :output
-                                   :if-does-not-exist :create)
+                                   :if-does-not-exist :create
+                                   :if-exists if-exists)
     (write-training-csv-header training-stream)
     (dolist (example training)
       (write-example example training-stream

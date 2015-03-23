@@ -7,9 +7,11 @@
            #:*unlabeled-training-file*
            #:*training-file*
            #:*test-file*
+           #:*opendata-file*
            #:unlabeled-training-examples
            #:training-examples
            #:test-examples
+           #:opendata-examples
            #:write-example
            #:write-training-csv-header
            #:write-test-csv-header
